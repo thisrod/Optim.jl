@@ -1,10 +1,15 @@
 # Preconditioning
 
 The `GradientDescent`, `ConjugateGradient` and `LBFGS` methods support preconditioning. A preconditioner
-can be thought of as a change of coordinates under which the Hessian is better conditioned. With a
+is a linear operator `P` that
+can be thought of as a change of coordinates
+from `x = Py` to `y`
+to improve the condition of the Hessian. With a
 good preconditioner substantially improved convergence is possible.
 
-A preconditioner `P`can be of any type as long as the following two methods are
+More precisely, the solvers that support preconditioning look along a line.  Given a guess `x₀` for the minimizer, they search for a better minimizer `x = x₀ + a*g`, where `g` is a direction vector, and `a` is a distance along the line.  Typically, `g` is the gradient of the cost function `f` at `x₀`.  When a preconditioner is specified, they search along the line `x = x₀ + a*P⁻¹*g` instead.  How this relates to the Hessian is explained below.
+
+A preconditioner `P` can be of any type as long as the following two methods are
 implemented:
 
 * `A_ldiv_B!(pgr, P, gr)` : apply `P` to a vector `gr` and store in `pgr`
@@ -50,10 +55,27 @@ The former optimize call converges at a slower rate than the latter. Looking at 
 
 ![plap](./plap.png)
 
-The contours are shaped like ellipsoids, but we would rather want them to be circles.
+The contours are shaped like ellipsoids, but we would rather want them to be circles, so that the gradient points to the minimizer.
 Using the preconditioner effectively changes the coordinates such that the contours
 becomes less ellipsoid-like. Benchmarking shows that using preconditioning provides
  an approximate speed-up factor of 15 in this 100 dimensional case.
 
+Looking at the contours in this example, it is apparent that the
+minimum lies in the direction where, as we move, we keep crossing
+contours that point the same way, and the gradient does not rotate.
+Let `H` be the Hessian of the cost function, and suppose we search
+along a line `x = x₀ + a*d`.  To avoid rotating the gradient, we
+seek a direction `d` for which `H*d = λ*g`, so that the change in
+the gradient, `H*d`, is parallel to the gradient `g`.  This direction
+`d = H⁻¹*g` is the one obtained by preconditioning with the Hessian.
+In the case that the cost is a quadratic form, it points straight
+at the minimizer.
+
+It is rarely possible to compute `H⁻¹*g` exactly.  However, it is
+often possible to find a `P` that approximates `H` in the directions
+where `x*H*x` is large, where the gradient changes rapidly.  In
+this case, preconditioning with `P` will select a direction where
+the gradient rotates gradually, and the cost function keeps decreasing
+for a long way.  This allows a larger step to be taken.
 
 ## References
